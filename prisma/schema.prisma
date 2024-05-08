@@ -1,0 +1,415 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String               @id @unique
+  username            String               @unique
+  walletAddress       String               @unique
+  nonce               String
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  buyerActivities     Activity[]           @relation("buyer")
+  sellerActivities    Activity[]           @relation("seller")
+  collections         Collection[]
+  hides               Hide[]
+  launchpads          Launchpad[]
+  likes               Like[]
+  listings            Listing[]
+  createdNFTs         NFT[]                @relation("minter")
+  ownedNFTs           NFT[]                @relation("owner")
+  notifications       Notification[]
+  notificationSetting NotificationSetting?
+  boughtOffers        Offer[]              @relation("buyer")
+  offers              Offer[]              @relation("seller")
+  profile             Profile?
+
+  @@index([createdAt, updatedAt])
+  @@index([id])
+  @@index([isActive])
+  @@index([nonce])
+  @@index([username])
+  @@index([walletAddress])
+}
+
+model Profile {
+  id        String   @id @unique
+  userId    String   @unique
+  bio       String?
+  avatarId  String?  @unique
+  bannerId  String?  @unique
+  twitter   String?
+  discord   String?
+  facebook  String?
+  reddit    String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  avatar    Photo?   @relation("avatar", fields: [avatarId], references: [id])
+  banner    Photo?   @relation("banner", fields: [bannerId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([avatarId, bannerId])
+  @@index([createdAt, updatedAt])
+  @@index([id])
+  @@index([userId])
+}
+
+model Photo {
+  id               String      @id @unique
+  url              String
+  fileEntityId     String      @unique
+  link             String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  collectionAvatar Collection? @relation("avatar")
+  collectionBanner Collection? @relation("banner")
+  launchpadImg     Launchpad?  @relation("image")
+  launchpadLogo    Launchpad?  @relation("logo")
+  FileEntity       FileEntity  @relation(fields: [fileEntityId], references: [id])
+  profileAvatar    Profile?    @relation("avatar")
+  profileBanner    Profile?    @relation("banner")
+
+  @@index([createdAt, updatedAt])
+  @@index([fileEntityId])
+  @@index([id])
+}
+
+model FileEntity {
+  id          String   @id @unique
+  fileName    String
+  path        String
+  key         String
+  mimeType    String
+  size        Int
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  Photo       Photo?
+
+  @@index([id])
+}
+
+model Collection {
+  id          String     @id @unique
+  name        String
+  address     String     @unique
+  supply      Int
+  avatarId    String?    @unique
+  bannerId    String?    @unique
+  desc        String?
+  website     String?
+  twitter     String?
+  discord     String?
+  network     Network
+  creatorId   String
+  launchpadId String?    @unique
+  verified    Boolean    @default(false)
+  feature     Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  avatar      Photo?     @relation("avatar", fields: [avatarId], references: [id])
+  banner      Photo?     @relation("banner", fields: [bannerId], references: [id])
+  creator     User       @relation(fields: [creatorId], references: [id])
+  Launchpad   Launchpad?
+  nfts        NFT[]
+  stats       Stat[]
+
+  @@index([address])
+  @@index([avatarId, bannerId])
+  @@index([createdAt, updatedAt])
+  @@index([creatorId])
+  @@index([id])
+  @@index([launchpadId])
+  @@index([name])
+  @@index([network])
+}
+
+model NFT {
+  id           String       @id @unique
+  ownerId      String
+  minterId     String
+  collectionId String
+  tokenAddress String
+  tokenId      String
+  tokenUri     String
+  name         String
+  image        String
+  attributes   Json
+  royalty      Int
+  contractType ContractType
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  activities   Activity[]
+  hides        Hide[]
+  likes        Like[]
+  listing      Listing[]
+  collection   Collection   @relation(fields: [collectionId], references: [id])
+  minter       User         @relation("minter", fields: [minterId], references: [id])
+  owner        User         @relation("owner", fields: [ownerId], references: [id])
+  offers       Offer[]
+
+  @@index([collectionId, tokenId])
+  @@index([contractType])
+  @@index([createdAt, updatedAt])
+  @@index([id])
+  @@index([name])
+  @@index([ownerId, minterId])
+  @@index([tokenAddress, tokenId])
+}
+
+model Listing {
+  id        String        @id @unique
+  nftId     String
+  sellerId  String
+  price     BigInt
+  network   Network
+  startTime DateTime
+  endTime   DateTime
+  expiresAt DateTime?
+  signature String
+  status    ListingStatus
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  nft       NFT           @relation(fields: [nftId], references: [id])
+  seller    User          @relation(fields: [sellerId], references: [id])
+  offers    Offer[]
+
+  @@index([createdAt, updatedAt])
+  @@index([endTime, expiresAt])
+  @@index([id])
+  @@index([network])
+  @@index([nftId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+model Offer {
+  id         String      @id @unique
+  listingId  String
+  nftId      String
+  sellerId   String
+  buyerId    String
+  offerPrice BigInt
+  signature  String
+  parameters String
+  status     OfferStatus
+  expiresAt  DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  buyer      User        @relation("buyer", fields: [buyerId], references: [id])
+  listing    Listing     @relation(fields: [listingId], references: [id])
+  nft        NFT         @relation(fields: [nftId], references: [id])
+  seller     User        @relation("seller", fields: [sellerId], references: [id])
+
+  @@index([buyerId, sellerId])
+  @@index([id])
+  @@index([nftId])
+  @@index([offerPrice])
+  @@index([status])
+}
+
+model Launchpad {
+  id                  String          @id @unique
+  creatorId           String
+  name                String
+  symbol              String
+  desc                String?
+  logoId              String?         @unique
+  imageId             String?         @unique
+  mintPrice           BigInt
+  supply              Int
+  owners              String[]
+  ownerRoyalties      Int[]
+  maxPerTx            Int
+  maxPerWallet        Int
+  wlEnabled           Boolean
+  wlAddresses         String[]
+  enableReserveTokens Boolean
+  startDate           DateTime
+  endDate             DateTime
+  network             Network
+  twitter             String?
+  discord             String?
+  facebook            String?
+  reddit              String?
+  status              LaunchpadStatus
+  collectionUri       String
+  collectionId        String?         @unique
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  Collection          Collection?     @relation(fields: [collectionId], references: [id])
+  creator             User            @relation(fields: [creatorId], references: [id])
+  image               Photo?          @relation("image", fields: [imageId], references: [id])
+  logoImg             Photo?          @relation("logo", fields: [logoId], references: [id])
+
+  @@index([collectionId])
+  @@index([createdAt, updatedAt])
+  @@index([creatorId])
+  @@index([id])
+  @@index([imageId, logoId])
+  @@index([name])
+  @@index([network])
+  @@index([startDate, endDate])
+  @@index([status])
+}
+
+model Activity {
+  id           String        @id @unique
+  nftId        String
+  sellerId     String
+  buyerId      String?
+  price        String
+  actionType   ActivityType
+  txHash       String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  buyer        User?         @relation("buyer", fields: [buyerId], references: [id])
+  nft          NFT           @relation(fields: [nftId], references: [id])
+  seller       User          @relation("seller", fields: [sellerId], references: [id])
+  notification Notification?
+
+  @@index([id])
+  @@index([nftId])
+  @@index([sellerId, buyerId])
+  @@index([txHash])
+}
+
+model Hide {
+  id        String   @id @unique
+  nftId     String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  nft       NFT      @relation(fields: [nftId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([id])
+  @@index([nftId])
+  @@index([userId])
+}
+
+model Like {
+  id        String   @id @unique
+  nftId     String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  nft       NFT      @relation(fields: [nftId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([createdAt, updatedAt])
+  @@index([id])
+  @@index([nftId])
+  @@index([userId])
+}
+
+model NotificationSetting {
+  id                   String   @id @unique
+  userId               String   @unique
+  notifyEmail          String
+  minOfferTokenAddress String
+  minOfferThreshold    BigInt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id           String           @id @unique
+  userId       String
+  type         NotificationType
+  activityId   String           @unique
+  acknowledged Boolean
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  activity     Activity         @relation(fields: [activityId], references: [id])
+  user         User             @relation(fields: [userId], references: [id])
+}
+
+model Stat {
+  id           String     @id @unique
+  collectionId String
+  owners       Int
+  listedItems  Int
+  salesItems   Int
+  floorPrice   BigInt
+  volume       BigInt
+  increased    Float      @default(100)
+  period       PeriodType
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  collection   Collection @relation(fields: [collectionId], references: [id])
+
+  @@index([collectionId])
+  @@index([createdAt, updatedAt])
+  @@index([floorPrice])
+  @@index([id])
+  @@index([listedItems, salesItems])
+  @@index([period])
+  @@index([volume])
+}
+
+enum ActivityType {
+  MINTED
+  LISTED
+  UNLISTED
+  CHANGE_PRICE
+  SOLD
+  CREATED_OFFER
+  CHANGE_OFFER
+  CANCELED_OFFER
+  ACCPETED_OFFER
+}
+
+enum NotificationType {
+  SOLD
+  NEW_OFFER
+  OFFER_ACCEPTED
+  OFFER_REJECTED
+}
+
+enum Network {
+  BNB
+  MAIN
+  RYOSHI
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  INACTIVE
+}
+
+enum LaunchpadStatus {
+  APPLIED
+  ACCEPTED
+  REJECTED
+  PROCESSING
+  PUBLISHED
+}
+
+enum OfferStatus {
+  CREATED
+  CANCELED
+  ACCEPTED
+  REJECTED
+}
+
+enum ContractType {
+  ERC721
+  ERC1155
+}
+
+enum PeriodType {
+  HOUR
+  SIX_HOURS
+  DAY
+  WEEK
+  ALL
+}
